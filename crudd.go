@@ -31,15 +31,6 @@ var (
 
 	indexTemplate   *template.Template
 	commandTemplate *template.Template
-
-	topBin  = flag.String("top_bin", "/usr/bin/top", "Location of the top binary")
-	topArgs = flag.String("top_args", "-bn1 -w256", "Args for the top binary")
-
-	freeBin  = flag.String("free_bin", "/usr/bin/free", "Location of the free binary")
-	freeArgs = flag.String("free_args", "-hw", "Args for the free binary")
-
-	dfBin  = flag.String("df_bin", "/bin/df", "Location of the df binary")
-	dfArgs = flag.String("df_args", "-h", "Args for the df binary")
 )
 
 func init() {
