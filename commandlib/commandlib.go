@@ -1,9 +1,17 @@
 package commandlib
 
+import "sort"
+
 type Command struct {
 	Name string
 	Path string
 	Args string
+}
+
+func init() {
+	sort.Slice(Commands, func(i, j int) bool {
+		return Commands[i].Name < Commands[j].Name
+	})
 }
 
 var (
@@ -29,6 +37,11 @@ var (
 			Args: "addr",
 		},
 		{
+			Name: "iplink",
+			Path: "/usr/bin/ip",
+			Args: "link",
+		},
+		{
 			Name: "netstat",
 			Path: "/usr/bin/netstat",
 			Args: "-taupen",
@@ -42,11 +55,6 @@ var (
 			Name: "sstul",
 			Path: "/usr/bin/ss",
 			Args: "-tul",
-		},
-		{
-			Name: "iplink",
-			Path: "/usr/bin/ip",
-			Args: "link",
 		},
 		{
 			Name: "pingv4",
