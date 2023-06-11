@@ -2,60 +2,14 @@ package main
 
 import (
 	"context"
+	"crudd/shutdownlib"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
-	"os/signal"
 	"strings"
 	"text/template"
-	"time"
-)
-
-const (
-	indexTemplate = `
-<!DOCTYPE html>
-<html>
-	<head>
-		<meta charset="UTF-8">
-		<title>CRUDD</title>
-		<style>
-			* {
-				background-color: #121212;
-				color: #ffffff;
-			}
-			body {
-				padding: 10px;
-			}
-		</style>
-	</head>
-	<body>
-		<h1>Continuously Running Userland Diagnostics Daemon</h1>
-		<h2><a href="/df">/df</a></h2>
-		<h2><a href="/free">/free</a></h2>
-		<h2><a href="/top">/top</a></h2>
-	</body>
-</html>`
-
-	commandTemplate = `
-<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="UTF-8">
-	<title>{{.Title}}</title>
-	<style>
-		* {
-			background-color: #121212;
-			color: #ffffff;
-		}
-	</style>
-</head>
-<body>
-	<pre>{{.Output}}</pre>
-</body>
-</html>`
 )
 
 type data struct {
@@ -65,6 +19,9 @@ type data struct {
 
 var (
 	port = flag.String("port", ":4901", "Server port")
+
+	indexTemplate   = template.Must(template.ParseFiles("templates/index.html"))
+	commandTemplate = template.Must(template.ParseFiles("templates/command.html"))
 
 	topBin  = flag.String("top_bin", "/usr/bin/top", "Location of the top binary")
 	topArgs = flag.String("top_args", "-bn1 -w256", "Args for the top binary")
@@ -79,53 +36,49 @@ var (
 func main() {
 	flag.Parse()
 
-	log.Printf("CRUDD starting up")
+	log.Printf("CRUDD is starting up")
+
+	ctx := context.Background()
 
 	http.HandleFunc("/", indexHandler)
-
 	http.HandleFunc("/df", dfHandler)
-
 	http.HandleFunc("/free", freeHandler)
-
 	http.HandleFunc("/top", topHandler)
 
-	server := &http.Server{
-		Addr: *port,
+	httpServer := &http.Server{
+		Addr:    *port,
+		Handler: logging()(http.DefaultServeMux),
 	}
 
-	done := make(chan bool)
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
-
-	go func() {
-		<-quit
+	shutdownlib.AddShutdownHandler(func() error {
 		log.Println("CRUDD is shutting down")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		if err := server.Shutdown(ctx); err != nil {
-			log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
-		}
-		close(done)
-	}()
+		return httpServer.Shutdown(ctx)
+	})
 
 	log.Println("CRUDD is ready to handle requests at", *port)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Could not listen on %s: %v\n", *port, err)
+	if err := httpServer.ListenAndServe(); err != nil {
+		if err != http.ErrServerClosed {
+			log.Fatalf("Could not listen on %s: %v\n", *port, err)
+		}
 	}
 
-	<-done
+	shutdownlib.WaitForShutdown()
 	log.Println("CRUDD has been shut down")
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.New("index").Parse(indexTemplate)
-	if err != nil {
-		fmt.Fprintf(w, "failed to parse template: %v", err)
-		return
+func logging() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				log.Println(r.Method, r.URL.Path, r.RemoteAddr)
+			}()
+			next.ServeHTTP(w, r)
+		})
 	}
-	if err := tmpl.Execute(w, nil); err != nil {
+}
+
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	if err := indexTemplate.Execute(w, nil); err != nil {
 		fmt.Fprintf(w, "failed to execute template: %v", err)
 		return
 	}
@@ -144,12 +97,7 @@ func freeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeCommandOutput(w http.ResponseWriter, d *data) {
-	tmpl, err := template.New("command").Parse(commandTemplate)
-	if err != nil {
-		fmt.Fprintf(w, "failed to parse template: %v", err)
-		return
-	}
-	if err := tmpl.Execute(w, d); err != nil {
+	if err := commandTemplate.Execute(w, d); err != nil {
 		fmt.Fprintf(w, "failed to execute template: %v", err)
 		return
 	}
@@ -158,7 +106,7 @@ func writeCommandOutput(w http.ResponseWriter, d *data) {
 func runCommand(bin, args string) *data {
 	cmd := exec.Command(bin, strings.Split(args, " ")...)
 
-	log.Printf("Running cmd: %s", cmd)
+	log.Printf("Executing cmd: %s", cmd)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
