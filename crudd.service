@@ -1,0 +1,15 @@
+[Unit]
+Description=Continuously Running Userland Diagnostics Daemon
+After=network.target
+
+[Service]
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ExecStart=/usr/bin/crudd
+Restart=on-failure
+RestartSec=60s
+
+[Install]
+WantedBy=multi-user.target
