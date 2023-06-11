@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crudd/commandlib"
-	"crudd/shutdownlib"
 	"embed"
 	"flag"
 	"fmt"
@@ -12,6 +11,8 @@ import (
 	"os/exec"
 	"strings"
 	"text/template"
+
+	"github.com/MatthewLavine/gracefulshutdown"
 )
 
 const (
@@ -65,7 +66,7 @@ func main() {
 		Handler: logging()(http.DefaultServeMux),
 	}
 
-	shutdownlib.AddShutdownHandler(func() error {
+	gracefulshutdown.AddShutdownHandler(func() error {
 		log.Println("CRUDD is shutting down")
 		return httpServer.Shutdown(ctx)
 	})
@@ -77,7 +78,7 @@ func main() {
 		}
 	}
 
-	shutdownlib.WaitForShutdown()
+	gracefulshutdown.WaitForShutdown()
 	log.Println("CRUDD has been shut down")
 }
 
