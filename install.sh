@@ -11,6 +11,10 @@ echo "Building CRUDD"
 
 go build .
 
+echo "Stopping CRUDD service (if running)"
+
+systemctl stop crudd.service 2> /dev/null
+
 echo "Installing CRUDD"
 
 cp ./crudd /usr/bin/crudd
@@ -24,5 +28,3 @@ echo "Enabling CRUDD service"
 systemctl daemon-reload
 
 systemctl enable --now crudd.service
-
-echo "Done"
