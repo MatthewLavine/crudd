@@ -15,8 +15,8 @@
 	</head>
 	<body>
 		<h1>Continuously Running Userland Diagnostics Daemon</h1>
-		<h2><a href="/df">/df</a></h2>
-		<h2><a href="/free">/free</a></h2>
-		<h2><a href="/top">/top</a></h2>
+		{{ range $command := .commands }}
+		<h2><a href="/{{ $command.Name }}">{{ $command.Path }} {{ $command.Args }}</a></h2>
+		{{ end }}
 	</body>
 </html>

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crudd/commandlib"
 	"crudd/shutdownlib"
 	"embed"
 	"flag"
@@ -57,10 +58,7 @@ func main() {
 
 	ctx := context.Background()
 
-	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/df", dfHandler)
-	http.HandleFunc("/free", freeHandler)
-	http.HandleFunc("/top", topHandler)
+	setupHandlers()
 
 	httpServer := &http.Server{
 		Addr:    *port,
@@ -99,23 +97,27 @@ func logging() func(http.Handler) http.Handler {
 	}
 }
 
+func setupHandlers() {
+	http.HandleFunc("/", indexHandler)
+
+	for _, command := range commandlib.Commands {
+		http.HandleFunc(fmt.Sprintf("/%s", command.Name), createCommandHandler(command))
+	}
+}
+
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	if err := indexTemplate.Execute(w, nil); err != nil {
+	if err := indexTemplate.Execute(w, map[string]interface{}{
+		"commands": commandlib.Commands,
+	}); err != nil {
 		fmt.Fprintf(w, "failed to execute template: %v", err)
 		return
 	}
 }
 
-func dfHandler(w http.ResponseWriter, r *http.Request) {
-	writeCommandOutput(w, runCommand(*dfBin, *dfArgs))
-}
-
-func topHandler(w http.ResponseWriter, r *http.Request) {
-	writeCommandOutput(w, runCommand(*topBin, *topArgs))
-}
-
-func freeHandler(w http.ResponseWriter, r *http.Request) {
-	writeCommandOutput(w, runCommand(*freeBin, *freeArgs))
+func createCommandHandler(command commandlib.Command) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		writeCommandOutput(w, runCommand(command.Path, command.Args))
+	}
 }
 
 func writeCommandOutput(w http.ResponseWriter, d *data) {
@@ -134,7 +136,7 @@ func runCommand(bin, args string) *data {
 	if err != nil {
 		return &data{
 			Title:  fmt.Sprintf("%s %s", bin, args),
-			Output: fmt.Sprintf("failed to run %s: %s", bin, err),
+			Output: fmt.Sprintf("failed to run %s: %s: %s", bin, err, out),
 		}
 	}
 
