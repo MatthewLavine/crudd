@@ -35,3 +35,9 @@ Run `install.sh` to:
 1) Enable and start `crudd.service`
 
 Access crudd at `localhost:4901`
+
+## Safety
+
+While CRUDD tries to never run commands that may leak sensitive information it is recommended to not expose CRUDD directly to the internet. CRUDD `exec`'s diagnostic commands as subprocesses, so it would be trivial to take advantage of this to cause a thread exhaustion attack.
+
+I personally run CRUDD behind nginx configured with an IP allowlist and primarily access it only from my LAN.
