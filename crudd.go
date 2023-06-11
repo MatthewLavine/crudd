@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crudd/shutdownlib"
+	"embed"
 	"flag"
 	"fmt"
 	"log"
@@ -12,16 +13,22 @@ import (
 	"text/template"
 )
 
-type data struct {
-	Title  string
-	Output string
-}
+const (
+	indexTemplatePath   = "templates/index.html"
+	commandTemplatePath = "templates/command.html"
+)
 
 var (
 	port = flag.String("port", ":4901", "Server port")
 
-	indexTemplate   = template.Must(template.ParseFiles("templates/index.html"))
-	commandTemplate = template.Must(template.ParseFiles("templates/command.html"))
+	//go:embed templates/index.html
+	indexTemplateFS embed.FS
+
+	//go:embed templates/command.html
+	commandTemplateFS embed.FS
+
+	indexTemplate   *template.Template
+	commandTemplate *template.Template
 
 	topBin  = flag.String("top_bin", "/usr/bin/top", "Location of the top binary")
 	topArgs = flag.String("top_args", "-bn1 -w256", "Args for the top binary")
@@ -32,6 +39,16 @@ var (
 	dfBin  = flag.String("df_bin", "/bin/df", "Location of the df binary")
 	dfArgs = flag.String("df_args", "-h", "Args for the df binary")
 )
+
+func init() {
+	indexTemplate = template.Must(template.ParseFS(indexTemplateFS, indexTemplatePath))
+	commandTemplate = template.Must(template.ParseFS(commandTemplateFS, commandTemplatePath))
+}
+
+type data struct {
+	Title  string
+	Output string
+}
 
 func main() {
 	flag.Parse()
