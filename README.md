@@ -9,7 +9,7 @@ This is loosely based on a workstation dianostics daemon used at Google but shar
 ## Running CRUDD
 ### Prerequisites
 
- - Have Go installed
+ - Have Go (>=1.16) installed
 
  - (Optional) Have Docker installed
 
