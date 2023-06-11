@@ -128,7 +128,13 @@ func writeCommandOutput(w http.ResponseWriter, d *data) {
 }
 
 func runCommand(bin, args string) *data {
-	cmd := exec.Command(bin, strings.Split(args, " ")...)
+	var cmd *exec.Cmd
+
+	if args == "" {
+		cmd = exec.Command(bin)
+	} else {
+		cmd = exec.Command(bin, strings.Split(args, " ")...)
+	}
 
 	log.Printf("Executing cmd: %s", cmd)
 

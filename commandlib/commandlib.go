@@ -72,6 +72,11 @@ var (
 			Args: "-a",
 		},
 		{
+			Name: "uptime",
+			Path: "/usr/bin/uptime",
+			Args: "",
+		},
+		{
 			Name: "systemctlstatus",
 			Path: "/usr/bin/systemctl",
 			Args: "status",
