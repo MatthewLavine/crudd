@@ -87,7 +87,12 @@ func logging() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
-				log.Println(r.Method, r.URL.Path, r.RemoteAddr)
+				ipAddress := r.RemoteAddr
+				fwdAddress := r.Header.Get("X-Forwarded-For")
+				if fwdAddress != "" {
+					ipAddress = fwdAddress
+				}
+				log.Println(r.Method, r.URL.Path, ipAddress)
 			}()
 			next.ServeHTTP(w, r)
 		})
