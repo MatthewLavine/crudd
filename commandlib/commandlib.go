@@ -72,6 +72,11 @@ var (
 			Args: "-a",
 		},
 		{
+			Name: "ps",
+			Path: "/usr/bin/ps",
+			Args: "auxf",
+		},
+		{
 			Name: "uptime",
 			Path: "/usr/bin/uptime",
 			Args: "",
