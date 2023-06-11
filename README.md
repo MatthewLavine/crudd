@@ -7,7 +7,7 @@ CRUDD's number one invariant is that it will only run pre-vetted commands and do
 This is loosely based on a workstation dianostics daemon used at Google but shares zero code with it.
 
 ## Running CRUDD
-### Prerequesites
+### Prerequisites
 
  - Have Go installed
 
