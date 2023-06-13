@@ -10,6 +10,3 @@ ProtectControlGroups=true
 ExecStart=/usr/bin/crudd
 Restart=on-failure
 RestartSec=60s
-
-[Install]
-WantedBy=multi-user.target
