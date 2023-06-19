@@ -59,12 +59,12 @@ var (
 		{
 			Name: "pingv4",
 			Path: "/bin/ping",
-			Args: "-4 -c3 www.google.com",
+			Args: "-4 -c10 www.google.com",
 		},
 		{
 			Name: "pingv6",
 			Path: "/bin/ping",
-			Args: "-6 -c3 www.google.com",
+			Args: "-6 -c10 www.google.com",
 		},
 		{
 			Name: "uname",
