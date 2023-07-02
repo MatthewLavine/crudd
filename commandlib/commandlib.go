@@ -17,6 +17,11 @@ func init() {
 var (
 	Commands = []Command{
 		{
+			Name: "dockerps",
+			Path: "/usr/bin/docker",
+			Args: "ps -a -s",
+		},
+		{
 			Name: "top",
 			Path: "/usr/bin/top",
 			Args: "-bn1 -w256",
