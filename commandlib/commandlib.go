@@ -91,5 +91,10 @@ var (
 			Path: "/usr/bin/systemctl",
 			Args: "status",
 		},
+		{
+			Name: "smartctl",
+			Path: "/usr/sbin/smartctl",
+			Args: "/dev/nvme0 -a",
+		},
 	}
 )
