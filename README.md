@@ -2,6 +2,8 @@
 
 [![Go](https://github.com/MatthewLavine/crudd/actions/workflows/go.yml/badge.svg)](https://github.com/MatthewLavine/crudd/actions/workflows/go.yml)
 
+[![Docker Image CI](https://github.com/MatthewLavine/crudd/actions/workflows/docker-image.yml/badge.svg)](https://github.com/MatthewLavine/crudd/actions/workflows/docker-image.yml)
+
 CRUDD allows a user to remotely execute a series of "safe" diagnostics tools via a web interface.
 
 CRUDD's number one invariant is that it will only run pre-vetted commands and does not provide arbitrary remote code execution.
