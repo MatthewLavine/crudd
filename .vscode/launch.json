@@ -6,7 +6,8 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "crudd.go"
+            "program": "crudd.go",
+            "console": "integratedTerminal"
         }
     ]
 }
