@@ -90,6 +90,9 @@ func logging() func(http.Handler) http.Handler {
 }
 
 func setupHandlers() {
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
 	http.HandleFunc("/", indexHandler)
 
 	for _, command := range commandlib.Commands {
