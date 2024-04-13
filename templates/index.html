@@ -1,22 +1,31 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta charset="UTF-8">
-		<title>CRUDD</title>
-		<style>
-			* {
-				background-color: #121212;
-				color: #ffffff;
-			}
-			body {
-				padding: 10px;
-			}
-		</style>
-	</head>
-	<body>
-		<h1>Continuously Running Userland Diagnostics Daemon</h1>
-		{{ range $command := .commands }}
-		<h2><a href="/{{ $command.Name }}">{{ $command.Path }} {{ $command.Args }}</a></h2>
-		{{ end }}
-	</body>
+
+<head>
+	<meta charset="UTF-8">
+	<title>CRUDD</title>
+	<style>
+		* {
+			background-color: #121212;
+			color: #ffffff;
+		}
+
+		body {
+			padding: 10px;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>Continuously Running Userland Diagnostics Daemon</h1>
+	{{ range $command := .commands }}
+	<h2><a href="/{{ $command.Name }}">{{ $command.Path }} {{ $command.Args }}</a></h2>
+	{{ end }}
+	<br>
+	<div class="copyright">
+		<span>&copy;2023 Matthew Lavine | <a href="https://github.com/MatthewLavine/crudd" target="_blank"
+				rel="noopener noreferrer">Source</a></span>
+	</div>
+</body>
+
 </html>
