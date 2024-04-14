@@ -27,6 +27,24 @@ func init() {
 	}
 }
 
+func ExistingCommands() (ret []Command) {
+	for _, command := range Commands {
+		if command.Exists {
+			ret = append(ret, command)
+		}
+	}
+	return
+}
+
+func NonExistingCommands() (ret []Command) {
+	for _, command := range Commands {
+		if !command.Exists {
+			ret = append(ret, command)
+		}
+	}
+	return
+}
+
 var (
 	Commands = []Command{
 		{

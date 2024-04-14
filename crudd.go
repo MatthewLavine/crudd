@@ -99,21 +99,13 @@ func setupHandlers() {
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if err := indexTemplate.Execute(w, map[string]interface{}{
-		"commands": commandlib.Commands,
-		"hidden":   countNonExistentCommands(commandlib.Commands),
+		"existingCommands":         commandlib.ExistingCommands(),
+		"nonExistingCommands":      commandlib.NonExistingCommands(),
+		"countNonExistingCommands": len(commandlib.NonExistingCommands()),
 	}); err != nil {
 		fmt.Fprintf(w, "failed to execute template: %v", err)
 		return
 	}
-}
-
-func countNonExistentCommands(commands []commandlib.Command) (ret int) {
-	for _, command := range commands {
-		if !command.Exists {
-			ret++
-		}
-	}
-	return
 }
 
 func createCommandHandler(command commandlib.Command) func(http.ResponseWriter, *http.Request) {
