@@ -1,17 +1,30 @@
 package commandlib
 
-import "sort"
+import (
+	"os"
+	"sort"
+)
 
 type Command struct {
-	Name string
-	Path string
-	Args string
+	Name   string
+	Path   string
+	Args   string
+	Exists bool
 }
 
 func init() {
 	sort.Slice(Commands, func(i, j int) bool {
 		return Commands[i].Name < Commands[j].Name
 	})
+
+	for idx := range Commands {
+		command := &Commands[idx]
+		if _, err := os.Stat(command.Path); err == nil {
+			(*command).Exists = true
+		} else {
+			(*command).Exists = false
+		}
+	}
 }
 
 var (
