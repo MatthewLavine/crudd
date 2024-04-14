@@ -6,6 +6,7 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os/exec"
@@ -28,6 +29,9 @@ var (
 
 	//go:embed templates/command.html
 	commandTemplateFS embed.FS
+
+	//go:embed static
+	staticFS embed.FS
 
 	indexTemplate   *template.Template
 	commandTemplate *template.Template
@@ -90,7 +94,11 @@ func logging() func(http.Handler) http.Handler {
 }
 
 func setupHandlers() {
-	fs := http.FileServer(http.Dir("./static"))
+	staticRoot, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		log.Fatalf("failed to create static FS root: %v", err)
+	}
+	fs := http.FileServer(http.FS(staticRoot))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	http.HandleFunc("/", indexHandler)
