@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crudd/commandlib"
 	"embed"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -17,8 +19,9 @@ import (
 )
 
 const (
-	indexTemplatePath   = "templates/index.html"
-	commandTemplatePath = "templates/command.html"
+	indexTemplatePath         = "templates/index.html"
+	commandHeaderTemplatePath = "templates/command_header.html"
+	commandFooterTemplatePath = "templates/command_footer.html"
 )
 
 var (
@@ -27,24 +30,24 @@ var (
 	//go:embed templates/index.html
 	indexTemplateFS embed.FS
 
-	//go:embed templates/command.html
-	commandTemplateFS embed.FS
+	//go:embed templates/command_header.html
+	commandHeaderTemplateFS embed.FS
+
+	//go:embed templates/command_footer.html
+	commandFooterTemplateFS embed.FS
 
 	//go:embed static
 	staticFS embed.FS
 
-	indexTemplate   *template.Template
-	commandTemplate *template.Template
+	indexTemplate         *template.Template
+	commandHeaderTemplate *template.Template
+	commandFooterTemplate *template.Template
 )
 
 func init() {
 	indexTemplate = template.Must(template.ParseFS(indexTemplateFS, indexTemplatePath))
-	commandTemplate = template.Must(template.ParseFS(commandTemplateFS, commandTemplatePath))
-}
-
-type data struct {
-	Title  string
-	Output string
+	commandHeaderTemplate = template.Must(template.ParseFS(commandHeaderTemplateFS, commandHeaderTemplatePath))
+	commandFooterTemplate = template.Must(template.ParseFS(commandFooterTemplateFS, commandFooterTemplatePath))
 }
 
 func main() {
@@ -121,18 +124,45 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 func createCommandHandler(command commandlib.Command) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeCommandOutput(w, runCommand(command.Path, command.Args))
+		rc := http.NewResponseController(w)
+		writeCommandHeader(w, map[string]interface{}{
+			"title": fmt.Sprintf("%s %s", command.Path, command.Args),
+		})
+		rc.Flush()
+		writeOutputStreaming(w, rc, startCommandStreaming(command.Path, command.Args))
+		rc.Flush()
+		writeCommandFooter(w)
+		rc.Flush()
 	}
 }
 
-func writeCommandOutput(w http.ResponseWriter, d *data) {
-	if err := commandTemplate.Execute(w, d); err != nil {
+func writeCommandHeader(w http.ResponseWriter, data any) {
+	if err := commandHeaderTemplate.Execute(w, data); err != nil {
 		fmt.Fprintf(w, "failed to execute template: %v", err)
 		return
 	}
 }
 
-func runCommand(bin, args string) *data {
+func writeCommandFooter(w http.ResponseWriter) {
+	if err := commandFooterTemplate.Execute(w, nil); err != nil {
+		fmt.Fprintf(w, "failed to execute template: %v", err)
+		return
+	}
+}
+
+func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, outputScanner *bufio.Scanner) {
+	for outputScanner.Scan() {
+		s := outputScanner.Text()
+		fmt.Fprintln(w, s)
+		rc.Flush()
+		log.Printf("streamed %d bytes to client: %s", len(outputScanner.Bytes()), s)
+	}
+	if err := outputScanner.Err(); err != nil {
+		log.Fatalf("failed to stream output: %v", err)
+	}
+}
+
+func startCommandStreaming(bin, args string) *bufio.Scanner {
 	var cmd *exec.Cmd
 
 	if args == "" {
@@ -143,16 +173,25 @@ func runCommand(bin, args string) *data {
 
 	log.Printf("Executing cmd: %s", cmd)
 
-	out, err := cmd.CombinedOutput()
+	stdOut, err := cmd.StdoutPipe()
 	if err != nil {
-		return &data{
-			Title:  fmt.Sprintf("%s %s", bin, args),
-			Output: fmt.Sprintf("failed to run %s: %s: %s", bin, err, out),
-		}
+		msg := fmt.Sprintf("failed to get stdout pipe for command %s: %s", bin, err)
+		log.Print(msg)
+		return bufio.NewScanner(strings.NewReader(msg))
 	}
 
-	return &data{
-		Title:  fmt.Sprintf("%s %s", bin, args),
-		Output: string(out),
+	stdErr, err := cmd.StderrPipe()
+	if err != nil {
+		msg := fmt.Sprintf("failed to get stderr pipe for command %s: %s", bin, err)
+		log.Print(msg)
+		return bufio.NewScanner(strings.NewReader(msg))
 	}
+
+	if err := cmd.Start(); err != nil {
+		msg := fmt.Sprintf("failed to run %s: %s", bin, err)
+		log.Print(msg)
+		return bufio.NewScanner(strings.NewReader(msg))
+	}
+
+	return bufio.NewScanner(io.MultiReader(stdOut, stdErr))
 }
