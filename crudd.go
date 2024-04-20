@@ -166,6 +166,11 @@ func startCommandStreaming(ctx context.Context, bin, args string) *bufio.Scanner
 		cmd = exec.CommandContext(ctx, bin, strings.Split(args, " ")...)
 	}
 
+	cmd.Cancel = func() error {
+		_ = cmd.Process.Kill() // intentionally ignore error because process may already be dead
+		return nil
+	}
+
 	cmd.WaitDelay = time.Duration(1) * time.Second
 
 	log.Printf("Executing cmd: %s", cmd)
@@ -189,6 +194,12 @@ func startCommandStreaming(ctx context.Context, bin, args string) *bufio.Scanner
 		log.Print(msg)
 		return bufio.NewScanner(strings.NewReader(msg))
 	}
+
+	go func(cmd *exec.Cmd) {
+		if err := cmd.Wait(); err != nil {
+			log.Printf("cmd.Wait() returned error: %v", err)
+		}
+	}(cmd)
 
 	return bufio.NewScanner(io.MultiReader(stdOut, stdErr))
 }
