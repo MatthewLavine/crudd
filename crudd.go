@@ -27,14 +27,8 @@ const (
 var (
 	port = flag.String("port", ":4901", "Server port")
 
-	//go:embed templates/index.html
-	indexTemplateFS embed.FS
-
-	//go:embed templates/command_header.html
-	commandHeaderTemplateFS embed.FS
-
-	//go:embed templates/command_footer.html
-	commandFooterTemplateFS embed.FS
+	//go:embed templates
+	templateFS embed.FS
 
 	//go:embed static
 	staticFS embed.FS
@@ -45,9 +39,9 @@ var (
 )
 
 func init() {
-	indexTemplate = template.Must(template.ParseFS(indexTemplateFS, indexTemplatePath))
-	commandHeaderTemplate = template.Must(template.ParseFS(commandHeaderTemplateFS, commandHeaderTemplatePath))
-	commandFooterTemplate = template.Must(template.ParseFS(commandFooterTemplateFS, commandFooterTemplatePath))
+	indexTemplate = template.Must(template.ParseFS(templateFS, indexTemplatePath))
+	commandHeaderTemplate = template.Must(template.ParseFS(templateFS, commandHeaderTemplatePath))
+	commandFooterTemplate = template.Must(template.ParseFS(templateFS, commandFooterTemplatePath))
 }
 
 func main() {
