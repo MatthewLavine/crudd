@@ -7,6 +7,7 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"html"
 	"io"
 	"io/fs"
 	"log"
@@ -152,7 +153,7 @@ func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, ou
 	}()
 	for outputScanner.Scan() {
 		s := outputScanner.Text()
-		fmt.Fprintln(w, s)
+		fmt.Fprintln(w, html.EscapeString(s))
 		rc.Flush()
 		log.Printf("Streamed %d bytes to client: %s", len(outputScanner.Bytes()), s)
 	}
