@@ -124,7 +124,8 @@ func createCommandHandler(command commandlib.Command) func(http.ResponseWriter, 
 			"title": fmt.Sprintf("%s %s", command.Path, command.Args),
 		})
 		rc.Flush()
-		writeOutputStreaming(w, rc, startCommandStreaming(r.Context(), command.Path, command.Args))
+		scanner, readerDoneChan := startCommandStreaming(r.Context(), command.Path, command.Args)
+		writeOutputStreaming(w, rc, scanner, readerDoneChan)
 		rc.Flush()
 		writeCommandFooter(w)
 		rc.Flush()
@@ -145,7 +146,10 @@ func writeCommandFooter(w http.ResponseWriter) {
 	}
 }
 
-func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, outputScanner *bufio.Scanner) {
+func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, outputScanner *bufio.Scanner, readerDoneChan chan struct{}) {
+	defer func() {
+		readerDoneChan <- struct{}{}
+	}()
 	for outputScanner.Scan() {
 		s := outputScanner.Text()
 		fmt.Fprintln(w, s)
@@ -157,8 +161,9 @@ func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, ou
 	}
 }
 
-func startCommandStreaming(ctx context.Context, bin, args string) *bufio.Scanner {
+func startCommandStreaming(ctx context.Context, bin, args string) (*bufio.Scanner, chan struct{}) {
 	var cmd *exec.Cmd
+	readerDoneChan := make(chan struct{}, 1)
 
 	if args == "" {
 		cmd = exec.CommandContext(ctx, bin)
@@ -171,7 +176,7 @@ func startCommandStreaming(ctx context.Context, bin, args string) *bufio.Scanner
 		return nil
 	}
 
-	cmd.WaitDelay = time.Duration(1) * time.Second
+	cmd.WaitDelay = time.Duration(5) * time.Second
 
 	log.Printf("Executing cmd: %s", cmd)
 
@@ -179,27 +184,28 @@ func startCommandStreaming(ctx context.Context, bin, args string) *bufio.Scanner
 	if err != nil {
 		msg := fmt.Sprintf("failed to get stdout pipe for command %s: %s", bin, err)
 		log.Print(msg)
-		return bufio.NewScanner(strings.NewReader(msg))
+		return bufio.NewScanner(strings.NewReader(msg)), readerDoneChan
 	}
 
 	stdErr, err := cmd.StderrPipe()
 	if err != nil {
 		msg := fmt.Sprintf("failed to get stderr pipe for command %s: %s", bin, err)
 		log.Print(msg)
-		return bufio.NewScanner(strings.NewReader(msg))
+		return bufio.NewScanner(strings.NewReader(msg)), readerDoneChan
 	}
 
 	if err := cmd.Start(); err != nil {
 		msg := fmt.Sprintf("failed to run %s: %s", bin, err)
 		log.Print(msg)
-		return bufio.NewScanner(strings.NewReader(msg))
+		return bufio.NewScanner(strings.NewReader(msg)), readerDoneChan
 	}
 
 	go func(cmd *exec.Cmd) {
+		<-readerDoneChan
 		if err := cmd.Wait(); err != nil {
 			log.Printf("cmd.Wait() returned error: %v", err)
 		}
 	}(cmd)
 
-	return bufio.NewScanner(io.MultiReader(stdOut, stdErr))
+	return bufio.NewScanner(io.MultiReader(stdOut, stdErr)), readerDoneChan
 }
