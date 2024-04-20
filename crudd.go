@@ -1,50 +1,48 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crudd/commandlib"
 	"embed"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
 	"os/exec"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/MatthewLavine/gracefulshutdown"
 )
 
 const (
-	indexTemplatePath   = "templates/index.html"
-	commandTemplatePath = "templates/command.html"
+	indexTemplatePath         = "templates/index.html"
+	commandHeaderTemplatePath = "templates/command_header.html"
+	commandFooterTemplatePath = "templates/command_footer.html"
 )
 
 var (
 	port = flag.String("port", ":4901", "Server port")
 
-	//go:embed templates/index.html
-	indexTemplateFS embed.FS
-
-	//go:embed templates/command.html
-	commandTemplateFS embed.FS
+	//go:embed templates
+	templateFS embed.FS
 
 	//go:embed static
 	staticFS embed.FS
 
-	indexTemplate   *template.Template
-	commandTemplate *template.Template
+	indexTemplate         *template.Template
+	commandHeaderTemplate *template.Template
+	commandFooterTemplate *template.Template
 )
 
 func init() {
-	indexTemplate = template.Must(template.ParseFS(indexTemplateFS, indexTemplatePath))
-	commandTemplate = template.Must(template.ParseFS(commandTemplateFS, commandTemplatePath))
-}
-
-type data struct {
-	Title  string
-	Output string
+	indexTemplate = template.Must(template.ParseFS(templateFS, indexTemplatePath))
+	commandHeaderTemplate = template.Must(template.ParseFS(templateFS, commandHeaderTemplatePath))
+	commandFooterTemplate = template.Must(template.ParseFS(templateFS, commandFooterTemplatePath))
 }
 
 func main() {
@@ -121,38 +119,97 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 func createCommandHandler(command commandlib.Command) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeCommandOutput(w, runCommand(command.Path, command.Args))
+		rc := http.NewResponseController(w)
+		writeCommandHeader(w, map[string]interface{}{
+			"title": fmt.Sprintf("%s %s", command.Path, command.Args),
+		})
+		rc.Flush()
+		scanner, readerDoneChan := startCommandStreaming(r.Context(), command.Path, command.Args)
+		writeOutputStreaming(w, rc, scanner, readerDoneChan)
+		rc.Flush()
+		writeCommandFooter(w)
+		rc.Flush()
 	}
 }
 
-func writeCommandOutput(w http.ResponseWriter, d *data) {
-	if err := commandTemplate.Execute(w, d); err != nil {
+func writeCommandHeader(w http.ResponseWriter, data any) {
+	if err := commandHeaderTemplate.Execute(w, data); err != nil {
 		fmt.Fprintf(w, "failed to execute template: %v", err)
 		return
 	}
 }
 
-func runCommand(bin, args string) *data {
+func writeCommandFooter(w http.ResponseWriter) {
+	if err := commandFooterTemplate.Execute(w, nil); err != nil {
+		fmt.Fprintf(w, "failed to execute template: %v", err)
+		return
+	}
+}
+
+func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, outputScanner *bufio.Scanner, readerDoneChan chan struct{}) {
+	defer func() {
+		readerDoneChan <- struct{}{}
+	}()
+	for outputScanner.Scan() {
+		s := outputScanner.Text()
+		fmt.Fprintln(w, s)
+		rc.Flush()
+		log.Printf("Streamed %d bytes to client: %s", len(outputScanner.Bytes()), s)
+	}
+	if err := outputScanner.Err(); err != nil {
+		log.Printf("failed to stream output: %v", err)
+	}
+}
+
+func startCommandStreaming(ctx context.Context, bin, args string) (*bufio.Scanner, chan struct{}) {
 	var cmd *exec.Cmd
+	readerDoneChan := make(chan struct{}, 1)
 
 	if args == "" {
-		cmd = exec.Command(bin)
+		cmd = exec.CommandContext(ctx, bin)
 	} else {
-		cmd = exec.Command(bin, strings.Split(args, " ")...)
+		cmd = exec.CommandContext(ctx, bin, strings.Split(args, " ")...)
 	}
+
+	cmd.Cancel = func() error {
+		_ = cmd.Process.Kill() // intentionally ignore error because process may already be dead
+		return nil
+	}
+
+	cmd.WaitDelay = time.Duration(5) * time.Second
 
 	log.Printf("Executing cmd: %s", cmd)
 
-	out, err := cmd.CombinedOutput()
+	stdOut, err := cmd.StdoutPipe()
 	if err != nil {
-		return &data{
-			Title:  fmt.Sprintf("%s %s", bin, args),
-			Output: fmt.Sprintf("failed to run %s: %s: %s", bin, err, out),
-		}
+		msg := fmt.Sprintf("failed to get stdout pipe for command %s: %s", bin, err)
+		log.Print(msg)
+		return bufio.NewScanner(strings.NewReader(msg)), readerDoneChan
 	}
 
-	return &data{
-		Title:  fmt.Sprintf("%s %s", bin, args),
-		Output: string(out),
+	stdErr, err := cmd.StderrPipe()
+	if err != nil {
+		msg := fmt.Sprintf("failed to get stderr pipe for command %s: %s", bin, err)
+		log.Print(msg)
+		return bufio.NewScanner(strings.NewReader(msg)), readerDoneChan
 	}
+
+	if err := cmd.Start(); err != nil {
+		msg := fmt.Sprintf("failed to run %s: %s", bin, err)
+		log.Print(msg)
+		return bufio.NewScanner(strings.NewReader(msg)), readerDoneChan
+	}
+
+	go func(cmd *exec.Cmd) {
+		select {
+		case <-readerDoneChan:
+		case <-ctx.Done():
+			log.Println("Request cancelled early")
+		}
+		// Call cmd.Wait to ensure we release file descriptors but ignore errors because Wait
+		// races with the request context and can cause spurious errors here.
+		_ = cmd.Wait()
+	}(cmd)
+
+	return bufio.NewScanner(io.MultiReader(stdOut, stdErr)), readerDoneChan
 }

@@ -53,6 +53,11 @@ var (
 			Args: "ps -a -s",
 		},
 		{
+			Name: "windockerps",
+			Path: "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+			Args: "ps -a -s",
+		},
+		{
 			Name: "top",
 			Path: "/usr/bin/top",
 			Args: "-bn1 -w256",
@@ -96,6 +101,11 @@ var (
 			Name: "pingv4",
 			Path: "/bin/ping",
 			Args: "-4 -c10 www.google.com",
+		},
+		{
+			Name: "winpingv4",
+			Path: "C:\\Windows\\System32\\PING.EXE",
+			Args: "-4 www.google.com",
 		},
 		{
 			Name: "pingv6",
