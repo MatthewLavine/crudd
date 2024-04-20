@@ -53,6 +53,16 @@ var (
 			Args: "ps -a -s",
 		},
 		{
+			Name: "dockerimages",
+			Path: "/usr/bin/docker",
+			Args: "images",
+		},
+		{
+			Name: "dockerstats",
+			Path: "/usr/bin/docker",
+			Args: "stats --no-stream --all",
+		},
+		{
 			Name: "windockerps",
 			Path: "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
 			Args: "ps -a -s",
