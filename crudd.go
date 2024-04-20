@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/MatthewLavine/gracefulshutdown"
 )
@@ -123,7 +124,7 @@ func createCommandHandler(command commandlib.Command) func(http.ResponseWriter, 
 			"title": fmt.Sprintf("%s %s", command.Path, command.Args),
 		})
 		rc.Flush()
-		writeOutputStreaming(w, rc, startCommandStreaming(command.Path, command.Args))
+		writeOutputStreaming(w, rc, startCommandStreaming(r.Context(), command.Path, command.Args))
 		rc.Flush()
 		writeCommandFooter(w)
 		rc.Flush()
@@ -152,18 +153,20 @@ func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, ou
 		log.Printf("streamed %d bytes to client: %s", len(outputScanner.Bytes()), s)
 	}
 	if err := outputScanner.Err(); err != nil {
-		log.Fatalf("failed to stream output: %v", err)
+		log.Printf("failed to stream output: %v", err)
 	}
 }
 
-func startCommandStreaming(bin, args string) *bufio.Scanner {
+func startCommandStreaming(ctx context.Context, bin, args string) *bufio.Scanner {
 	var cmd *exec.Cmd
 
 	if args == "" {
-		cmd = exec.Command(bin)
+		cmd = exec.CommandContext(ctx, bin)
 	} else {
-		cmd = exec.Command(bin, strings.Split(args, " ")...)
+		cmd = exec.CommandContext(ctx, bin, strings.Split(args, " ")...)
 	}
+
+	cmd.WaitDelay = time.Duration(1) * time.Second
 
 	log.Printf("Executing cmd: %s", cmd)
 
