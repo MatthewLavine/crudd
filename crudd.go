@@ -154,7 +154,7 @@ func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, ou
 		s := outputScanner.Text()
 		fmt.Fprintln(w, s)
 		rc.Flush()
-		log.Printf("streamed %d bytes to client: %s", len(outputScanner.Bytes()), s)
+		log.Printf("Streamed %d bytes to client: %s", len(outputScanner.Bytes()), s)
 	}
 	if err := outputScanner.Err(); err != nil {
 		log.Printf("failed to stream output: %v", err)
@@ -201,10 +201,14 @@ func startCommandStreaming(ctx context.Context, bin, args string) (*bufio.Scanne
 	}
 
 	go func(cmd *exec.Cmd) {
-		<-readerDoneChan
-		if err := cmd.Wait(); err != nil {
-			log.Printf("cmd.Wait() returned error: %v", err)
+		select {
+		case <-readerDoneChan:
+		case <-ctx.Done():
+			log.Println("Request cancelled early")
 		}
+		// Call cmd.Wait to ensure we release file descriptors but ignore errors because Wait
+		// races with the request context and can cause spurious errors here.
+		_ = cmd.Wait()
 	}(cmd)
 
 	return bufio.NewScanner(io.MultiReader(stdOut, stdErr)), readerDoneChan
