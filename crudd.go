@@ -27,7 +27,8 @@ const (
 )
 
 var (
-	port = flag.String("port", ":4901", "Server port")
+	port       = flag.String("port", ":4901", "Server port")
+	testFSRoot = flag.String("test_fs_root", "", "Fake FS root for testing")
 
 	//go:embed templates
 	templateFS embed.FS
@@ -165,6 +166,15 @@ func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, ou
 func startCommandStreaming(ctx context.Context, bin, args string) (*bufio.Scanner, chan struct{}) {
 	var cmd *exec.Cmd
 	readerDoneChan := make(chan struct{}, 1)
+
+	if *testFSRoot != "" {
+		log.Printf("testFSRoot was set to: %v", *testFSRoot)
+		bin = *testFSRoot + bin
+	}
+
+	if windowsTestFS := strings.Contains(*testFSRoot, "\\"); windowsTestFS {
+		bin = strings.ReplaceAll(bin, "/", "\\")
+	}
 
 	if args == "" {
 		cmd = exec.CommandContext(ctx, bin)
