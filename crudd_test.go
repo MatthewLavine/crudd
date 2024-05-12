@@ -111,7 +111,8 @@ func Test_Command(t *testing.T) {
 		fakeCommandBytes = []byte(`@echo off
 		echo fake command output`)
 	} else {
-		fakeCommandBytes = []byte(`echo fake command output`)
+		fakeCommandBytes = []byte(`#!/bin/sh
+		echo fake command output`)
 	}
 
 	if _, err := f.Write(fakeCommandBytes); err != nil {
