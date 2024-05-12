@@ -85,7 +85,7 @@ func Test_Command(t *testing.T) {
 	if windows {
 		command = path + "/top.bat"
 	} else {
-		command = path + "/top.sh"
+		command = path + "/top"
 	}
 
 	if windows {
