@@ -27,8 +27,9 @@ const (
 )
 
 var (
-	port       = flag.String("port", ":4901", "Server port")
-	testFSRoot = flag.String("test_fs_root", "", "Fake FS root for testing")
+	port           = flag.String("port", ":4901", "Server port")
+	testFSRoot     = flag.String("test_fs_root", "", "Fake FS root for testing")
+	verboseLogging = flag.Bool("verbose", false, "Verbose output")
 
 	//go:embed templates
 	templateFS embed.FS
@@ -160,7 +161,9 @@ func writeOutputStreaming(w http.ResponseWriter, rc *http.ResponseController, ou
 		s := outputScanner.Text()
 		fmt.Fprintln(w, html.EscapeString(s))
 		rc.Flush()
-		log.Printf("Streamed %d bytes to client: %s", len(outputScanner.Bytes()), s)
+		if *verboseLogging {
+			log.Printf("Streamed %d bytes to client: %s", len(outputScanner.Bytes()), s)
+		}
 	}
 	if err := outputScanner.Err(); err != nil {
 		log.Printf("failed to stream output: %v", err)
