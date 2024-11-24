@@ -127,11 +127,13 @@ func createCommandHandler(command commandlib.Command) func(http.ResponseWriter, 
 			"title": fmt.Sprintf("%s %s", command.Path, command.Args),
 		})
 		rc.Flush()
+		startTime := time.Now()
 		scanner, readerDoneChan, exitCodeChan := startCommandStreaming(r.Context(), command.Path, command.Args)
 		writeOutputStreaming(w, rc, scanner, readerDoneChan)
 		rc.Flush()
 		exitCode := <-exitCodeChan
-		log.Printf("Command exited with code: %d", exitCode)
+		latency := time.Since(startTime)
+		log.Printf("Command took %s to run and exited with code %d", latency.Round(time.Microsecond), exitCode)
 		fmt.Fprintf(w, "\nCommand exited with code: %d", exitCode)
 		rc.Flush()
 		writeCommandFooter(w)
